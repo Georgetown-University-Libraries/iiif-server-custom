@@ -11,6 +11,8 @@ from os.path import dirname
 from shutil import copy
 from urllib import unquote, quote_plus
 from contextlib import closing
+#GU Addition
+from os.path import normpath
 
 import constants
 import hashlib
@@ -103,6 +105,34 @@ class SimpleFSResolver(_AbstractResolver):
 
         return (source_fp, format)
 
+
+
+#GU Addition
+class SlashSubFSResolver(SimpleFSResolver):
+    def __init__(self, config):
+        super(SlashSubFSResolver, self).__init__(config)
+        self.slash_sub = self.config.get('slash_sub', '/')
+
+#overwrite default source file path lookup to account for slash subs and check for directory traversals
+    def source_file_path(self, ident):
+        logger.warning('Start source_file_path')
+        ident = unquote(ident)
+        ident = ident.replace(self.slash_sub,'/')
+        logger.warning('Checkpoint 0')
+        match_base = 0
+        logger.warning('Checkpoint 1')
+        for directory in self.source_roots:
+            fp = join(directory,ident)
+            final_path = normpath(fp)
+            #check for directory traversals and say no resource can be found if detected
+            if final_path.startswith(directory):
+                match_base = 1
+                if exists(fp):
+                    return fp
+        logger.warning('Checkpoint 2')
+        if not match_base:
+            logger.warning('Directory traversal attempt. Ident: ' + ident + ' ImgDir: ' + directory + ' AbsPath: ' + final_path)
+            return None
 
 # To use this the resolver stanza of the config will have to have both the
 # src_img_root as required by the SimpleFSResolver and also an
